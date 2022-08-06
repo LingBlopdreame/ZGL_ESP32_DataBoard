@@ -30,7 +30,9 @@
 #include "infoType.h"
 
 #define DEFAULT_SCAN_LIST_SIZE 8
-extern SemaphoreHandle_t connectStatusMutex;
+extern SemaphoreHandle_t wifiConnectStatusMutex;
+extern SemaphoreHandle_t mqttConnectStatusMutex;
+extern SemaphoreHandle_t adcMutex;
 extern SemaphoreHandle_t ssidInfoMutex;
 extern SemaphoreHandle_t connectSemphr;
 
@@ -45,7 +47,7 @@ esp_mqtt_client_handle_t client;
 
 uint16_t ap_count = 0;
 wifi_ap_record_t ap_info[8];
-
+extern adc1_channel_t adcChannel[2];
 extern bool wifiConnectStatus;
 
 static void log_error_if_nonzero(const char *message, int error_code) {
@@ -172,6 +174,20 @@ void refreshTask(void *pvParameters) {
     }
 }
 
+void mqttSendAdcValue(void) {
+    if (xSemaphoreTake(mqttConnectStatusMutex, 5)) {
+        uint32_t adcValues[2] = {0};
+        for (uint8_t i = 0; i < 2; i++) {
+            adcValues[i] = ADC_readVoltage(adcChannel[i]);
+        }
+        char *message;
+        asprintf(&message, "channel6:%d;channel7:%d", adcValues[0], adcValues[1]);
+        esp_mqtt_client_publish(client, "esp32/data", message, 0, 0, 0);
+        free(message);
+        xSemaphoreGive(mqttConnectStatusMutex);
+    }
+}
+
 void wifiTask(void *pvParameters) {
     (void) pvParameters;
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -179,9 +195,9 @@ void wifiTask(void *pvParameters) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(example_connect());
 
-    if (xSemaphoreTake(connectStatusMutex, portMAX_DELAY)) {
+    if (xSemaphoreTake(wifiConnectStatusMutex, portMAX_DELAY)) {
         wifiConnectStatus = true;
-        xSemaphoreGive(connectStatusMutex);
+        xSemaphoreGive(wifiConnectStatusMutex);
     }
 
     mqtt_app_start();
@@ -191,6 +207,9 @@ void wifiTask(void *pvParameters) {
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(500));
         ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
-        esp_mqtt_client_publish(client, "esp32/data", "data", 0, 0, 0);
+        if (xSemaphoreTake(adcMutex, portMAX_DELAY)) {
+            mqttSendAdcValue();
+            xSemaphoreGive(adcMutex);
+        }
     }
 }

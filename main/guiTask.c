@@ -25,7 +25,9 @@
 #include "infoType.h"
 
 
-extern SemaphoreHandle_t connectStatusMutex;
+extern SemaphoreHandle_t wifiConnectStatusMutex;
+extern SemaphoreHandle_t mqttConnectStatusMutex;
+extern SemaphoreHandle_t adcMutex;
 extern SemaphoreHandle_t ssidInfoMutex;
 extern SemaphoreHandle_t connectSemphr;
 extern SemaphoreHandle_t ssidRefreshSemphr;
@@ -37,8 +39,21 @@ SemaphoreHandle_t guiMutex;
 bool wifiConnectStatus = false;
 extern uint16_t ap_count;
 extern wifi_ap_record_t ap_info[8];
-
 extern esp_mqtt_client_handle_t client;
+
+extern adc1_channel_t adcChannel[2];
+
+void set_ADC_value(lv_obj_t **checkbox, lv_obj_t **dropdown, lv_obj_t **valueLabel, adc1_channel_t *channel) {
+    if (lv_obj_get_state(*checkbox) == LV_STATE_CHECKED) {
+        if (lv_dropdown_get_selected(*dropdown) == 0) {
+            lv_label_set_text(*valueLabel, "0000");
+        } else if (lv_dropdown_get_selected(*dropdown) == 1) {
+            lv_label_set_text_fmt(*valueLabel, "%d", ADC_readVoltage(channel[0]));
+        } else if (lv_dropdown_get_selected(*dropdown) == 2) {
+            lv_label_set_text_fmt(*valueLabel, "%d", ADC_readVoltage(channel[1]));
+        }
+    }
+}
 
 /*
 // TODO: 通过队列通知 Core0 connect WIFI, WIFI 状态使用应上锁
@@ -58,26 +73,33 @@ void guiRefreshTask(void *pvParameters) {
     (void) pvParameters;
     lv_obj_t *page;
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(200));
         if (xSemaphoreTake(guiMutex, 5)) {
             page = lv_scr_act();
             if (page == ui_Screen1) {
-                if (xSemaphoreTake(connectStatusMutex, 5)) {
+                if (xSemaphoreTake(wifiConnectStatusMutex, 5)) {
                     if (wifiConnectStatus) {
                         lv_img_set_src(ui_WIFIIcon, &ui_img_wlan_png);
                     } else {
                         lv_img_set_src(ui_WIFIIcon, &ui_img_nowifi_png);
                     }
-                    xSemaphoreGive(connectStatusMutex);
+                    xSemaphoreGive(wifiConnectStatusMutex);
+                }
+                if (xSemaphoreTake(adcMutex, portMAX_DELAY)) {
+                    set_ADC_value(&ui_flag0, &ui_channel0, &ui_ADCValue0, adcChannel);
+                    set_ADC_value(&ui_flag1, &ui_channel1, &ui_ADCValue1, adcChannel);
+                    set_ADC_value(&ui_flag2, &ui_channel2, &ui_ADCValue2, adcChannel);
+                    set_ADC_value(&ui_flag3, &ui_channel3, &ui_ADCValue3, adcChannel);
+                    xSemaphoreGive(adcMutex);
                 }
             } else if (page == ui_Screen2) {
-                if (xSemaphoreTake(connectStatusMutex, 5)) {
+                if (xSemaphoreTake(wifiConnectStatusMutex, 5)) {
                     if (wifiConnectStatus) {
                         lv_label_set_text(ui_Label14, "Disconnect");
                     } else {
                         lv_label_set_text(ui_Label14, "Connect");
                     }
-                    xSemaphoreGive(connectStatusMutex);
+                    xSemaphoreGive(wifiConnectStatusMutex);
                 }
                 if (xSemaphoreTake(ssidRefreshedSemphr, 0)) {
                     uint8_t pos = 0;

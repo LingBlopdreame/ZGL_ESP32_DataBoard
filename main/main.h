@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bsp.h"
+
 #define SCREEN_WIDTH    480
 #define SCREEN_HEIGHT   320
 

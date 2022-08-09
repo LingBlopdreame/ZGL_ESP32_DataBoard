@@ -9,10 +9,14 @@
  */
 #include "dac_func.h"
 
+dac_cw_config_t dac_config = {
+    .en_ch = DAC_CHANNEL_1,
+    .scale = DAC_CW_SCALE_1,
+    .phase = DAC_CW_PHASE_0,
+    .freq  = 130
+};
 
 void DAC_init(dac_channel_t channel, dac_cw_scale_t scale, dac_cw_phase_t phase, uint16_t freq) {
-    dac_cw_config_t dac_config;
-    
     dac_config.en_ch = channel;
     dac_config.scale = scale;
     dac_config.phase = phase;
@@ -20,5 +24,13 @@ void DAC_init(dac_channel_t channel, dac_cw_scale_t scale, dac_cw_phase_t phase,
 
     dac_cw_generator_config(&dac_config);
     dac_cw_generator_enable();
-    dac_output_enable(channel);
+}
+
+void DAC_setConfig(dac_channel_t channel, dac_cw_scale_t scale, dac_cw_phase_t phase, uint16_t freq) {
+    dac_config.en_ch = channel;
+    dac_config.scale = scale;
+    dac_config.phase = phase;
+    dac_config.freq  = freq;
+
+    dac_cw_generator_config(&dac_config);
 }

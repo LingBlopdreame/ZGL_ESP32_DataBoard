@@ -18,5 +18,6 @@
 #include "driver/dac.h"
 
 void DAC_init(dac_channel_t channel, dac_cw_scale_t scale, dac_cw_phase_t phase, uint16_t freq);
+void DAC_setConfig(dac_channel_t channel, dac_cw_scale_t scale, dac_cw_phase_t phase, uint16_t freq);
 
 #endif

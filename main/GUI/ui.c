@@ -703,7 +703,7 @@ void ui_Screen1_screen_init(void)
     // ui_amplitude
 
     ui_amplitude = lv_slider_create(ui_Screen1);
-    lv_slider_set_range(ui_amplitude, 0, 100);
+    lv_slider_set_range(ui_amplitude, 0, 3);
 
     lv_obj_set_width(ui_amplitude, 165);
     lv_obj_set_height(ui_amplitude, 5);
@@ -716,7 +716,7 @@ void ui_Screen1_screen_init(void)
     // ui_frequency
 
     ui_frequency = lv_slider_create(ui_Screen1);
-    lv_slider_set_range(ui_frequency, 0, 100);
+    lv_slider_set_range(ui_frequency, 130, 55000);
 
     lv_obj_set_width(ui_frequency, 165);
     lv_obj_set_height(ui_frequency, 5);

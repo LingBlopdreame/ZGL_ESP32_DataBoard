@@ -30,6 +30,7 @@
 #include "infoType.h"
 
 #define DEFAULT_SCAN_LIST_SIZE 8
+
 extern SemaphoreHandle_t wifiConnectStatusMutex;
 extern SemaphoreHandle_t mqttConnectStatusMutex;
 extern SemaphoreHandle_t adcMutex;
@@ -49,6 +50,7 @@ uint16_t ap_count = 0;
 wifi_ap_record_t ap_info[8];
 extern adc1_channel_t adcChannel[2];
 extern bool wifiConnectStatus;
+extern dac_cw_config_t dac_config;
 
 static void log_error_if_nonzero(const char *message, int error_code) {
     if (error_code != 0) {
@@ -66,11 +68,29 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             msg_id = esp_mqtt_client_publish(client, "esp32/log", "esp32 connect", 0, 0, 0);
             ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+            esp_mqtt_client_subscribe(client, "esp32/control", 0);
             ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
             break;
 
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+            break;
+
+        case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "MQTT_EVENT_DATA");
+            if (strcmp(event->topic, "esp32/control") == 0) {
+                dac_config.en_ch = event->data[0];
+                dac_config.scale = 4-event->data[1];
+                dac_config.freq  = (event->data[2]<<8)|event->data[3];
+                dac_cw_generator_config(&dac_config);
+                if (event->data[4]) {
+                    dac_output_enable(event->data[0]);
+                } else {
+                    dac_output_disable(event->data[0]);
+                }
+                printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+                printf("DATA len: %d, [%d, %d, %d, %d]\r\n", event->data_len, event->data[0], event->data[1], (event->data[2]<<8)|event->data[3], event->data[4]);
+            }
             break;
 
         case MQTT_EVENT_ERROR:

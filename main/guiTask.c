@@ -41,7 +41,9 @@ extern uint16_t ap_count;
 extern wifi_ap_record_t ap_info[8];
 extern esp_mqtt_client_handle_t client;
 
+bool dacStatus = false;
 extern adc1_channel_t adcChannel[2];
+extern dac_cw_config_t dac_config;
 
 void set_ADC_value(lv_obj_t **checkbox, lv_obj_t **dropdown, lv_obj_t **valueLabel, adc1_channel_t *channel) {
     if (lv_obj_get_state(*checkbox) == LV_STATE_CHECKED) {
@@ -131,6 +133,33 @@ static void lv_tick_callback(void *arg) {
     lv_tick_inc(LV_TICK_PERIOD_MS);
 }
 
+void ampEventCallback(lv_event_t * e) {
+    uint32_t ampValue = (uint32_t)lv_slider_get_value(ui_amplitude);
+    dac_config.scale = 4-ampValue;
+    dac_cw_generator_config(&dac_config);
+}
+
+void freEventCallback(lv_event_t * e) {
+    uint32_t freValue = (uint32_t)lv_slider_get_value(ui_frequency);
+    dac_config.freq = freValue;
+    dac_cw_generator_config(&dac_config);
+}
+
+void buttonEventCallback(lv_event_t * e) {
+    uint16_t dacChannel = lv_dropdown_get_selected(ui_channel4);
+    if (!dacStatus) {
+        dac_config.en_ch = dacChannel;
+        dac_output_enable(dacChannel);
+        lv_label_set_text(ui_buttonLabel, "Close");
+        dacStatus = true;
+    } else {
+        dac_config.en_ch = dacChannel;
+        dac_output_disable(dacChannel);
+        lv_label_set_text(ui_buttonLabel, "Open");
+        dacStatus = false;
+    }
+}
+
 void guiTask(void *pvParameter) {
     (void) pvParameter;
     guiMutex = xSemaphoreCreateMutex();
@@ -170,6 +199,10 @@ void guiTask(void *pvParameter) {
     esp_timer_start_periodic(periodic_timer_tick, LV_TICK_PERIOD_MS * 1000);
 
     ui_init();
+
+    lv_obj_add_event_cb(ui_amplitude, ampEventCallback, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_frequency, freEventCallback, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(ui_Button, buttonEventCallback, LV_EVENT_CLICKED, NULL);
 
     xTaskCreatePinnedToCore(guiRefreshTask, "guiRefreshTask", 1024*5, NULL, 2, NULL, 1);
 

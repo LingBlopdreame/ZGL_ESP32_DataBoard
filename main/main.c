@@ -53,6 +53,8 @@ void app_main(void) {
     ssidResponseQueue = xQueueCreate(1, sizeof(info_t));
 
     ADC_init(adcChannel, 2, ADC_WIDTH_12Bit, ADC_ATTEN_11db);
+    DAC_init(DAC_CHANNEL_1, DAC_CW_SCALE_1, DAC_CW_PHASE_0, 130);
+    DAC_init(DAC_CHANNEL_2, DAC_CW_SCALE_1, DAC_CW_PHASE_0, 130);
 
     xTaskCreatePinnedToCore(guiTask, "gui task", 4096*10, NULL, 0, NULL, 1);
     xTaskCreatePinnedToCore(wifiTask, "wifi task", 4096, NULL, 0, NULL, 0);

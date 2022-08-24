@@ -15,8 +15,8 @@
 #include "main.h"
 #include "infoType.h"
 
-#include "guiTask.h"
-#include "wifiTask.h"
+#include "task/guiTask.h"
+#include "task/wifiTask.h"
 
 static const char *TAG = "APP";
 

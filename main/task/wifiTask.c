@@ -11,7 +11,7 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "protocol_examples_common.h"
+#include "wifi_func.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -26,7 +26,7 @@
 #include "mqtt_client.h"
 
 #include "main.h"
-
+#include "bsp.h"
 #include "infoType.h"
 
 #define DEFAULT_SCAN_LIST_SIZE 8
@@ -58,6 +58,14 @@ static void log_error_if_nonzero(const char *message, int error_code) {
     }
 }
 
+/**
+ * @brief
+ * @param handler_args
+ * @param base
+ * @param event_id
+ * @param event_data
+ * @return
+ */
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
@@ -109,6 +117,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
+/**
+ * @brief
+ */
 static void mqtt_app_start(void) {
     esp_mqtt_client_config_t mqtt_cfg = {
         .uri = "mqtt://121.41.54.24:1883",
@@ -126,7 +137,6 @@ void refreshTask(void *pvParameters) {
     (void) pvParameters;
     for (;;) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
-        // TODO: 需要完成刷新任务: ssid 列表刷新, 状态刷新
         /*
         if (xSemaphoreTake(connectSemphr, 0)) {
 
@@ -207,6 +217,7 @@ void mqttSendAdcValue(void) {
         xSemaphoreGive(mqttConnectStatusMutex);
     }
 }
+
 
 void wifiTask(void *pvParameters) {
     (void) pvParameters;

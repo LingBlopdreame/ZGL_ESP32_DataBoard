@@ -64,22 +64,35 @@ void connectWifiFunc(lv_event_t *e) {
     xSemaphoreGive(connectSemphr);
 }
 */
-// TODO：通过队列通知 Core0 刷新 SSID 列表, 列表全局共享应上锁
+
+/**
+ * @brief 
+ * @param e
+ */
 void ssidRefreshFucn(lv_event_t * e) {
     (void) e;
     xSemaphoreGive(ssidRefreshSemphr);
 }
 
-// TODO: 创建一个任务通过检测队列刷新 setting 界面
+/**
+ * @brief 创建一个任务通过检测队列刷新 setting 界面
+ * @param pvParameters
+ */
 void guiRefreshTask(void *pvParameters) {
     (void) pvParameters;
     lv_obj_t *page;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(200));
         if (xSemaphoreTake(guiMutex, 5)) {
+            /**
+             * 获取当前页面, 根据不同的界面进行不同的刷新操作, 该应用一共包含两个页面,
+             * 当页面为 Screen1 时, 表示当前为主界面, 主要进行 WIFI 标志 以及 adc 数据 的刷新
+             * 当页面为 Screen2 时, 表示当前为设置页面, 主要进行 WIFI 列表 以及 按键文本 的刷新
+             */
             page = lv_scr_act();
             if (page == ui_Screen1) {
                 if (xSemaphoreTake(wifiConnectStatusMutex, 5)) {
+                    // 根据 wifi 连接状态, 更新 wifi 状态指示图标
                     if (wifiConnectStatus) {
                         lv_img_set_src(ui_WIFIIcon, &ui_img_wlan_png);
                     } else {
@@ -88,6 +101,7 @@ void guiRefreshTask(void *pvParameters) {
                     xSemaphoreGive(wifiConnectStatusMutex);
                 }
                 if (xSemaphoreTake(adcMutex, portMAX_DELAY)) {
+                    // 更新 adc 数据
                     set_ADC_value(&ui_flag0, &ui_channel0, &ui_ADCValue0, adcChannel);
                     set_ADC_value(&ui_flag1, &ui_channel1, &ui_ADCValue1, adcChannel);
                     set_ADC_value(&ui_flag2, &ui_channel2, &ui_ADCValue2, adcChannel);
@@ -96,6 +110,7 @@ void guiRefreshTask(void *pvParameters) {
                 }
             } else if (page == ui_Screen2) {
                 if (xSemaphoreTake(wifiConnectStatusMutex, 5)) {
+                    // 根据 wifi 连接状态更新按键文本
                     if (wifiConnectStatus) {
                         lv_label_set_text(ui_Label14, "Disconnect");
                     } else {
@@ -104,17 +119,19 @@ void guiRefreshTask(void *pvParameters) {
                     xSemaphoreGive(wifiConnectStatusMutex);
                 }
                 if (xSemaphoreTake(ssidRefreshedSemphr, 0)) {
+                    // WIFI 列表刷新
                     uint8_t pos = 0;
                     lv_dropdown_clear_options(ui_SSID);
                     lv_dropdown_add_option(ui_SSID, "None", pos++);
-                    xSemaphoreTake(ssidInfoMutex, portMAX_DELAY);
-                    for (uint8_t i = 0; i < ap_count; i++) {
-                        lv_dropdown_add_option(ui_SSID, (char *) ap_info[i].ssid, pos++);
+                    if (xSemaphoreTake(ssidInfoMutex, portMAX_DELAY)) {
+                        for (uint16_t i = 0; i < ap_count; i++) {
+                            lv_dropdown_add_option(ui_SSID, (char *) ap_info[i].ssid, pos++);
+                        }
+                        xSemaphoreGive(ssidInfoMutex);
                     }
-                    xSemaphoreGive(ssidInfoMutex);
                 }
-
                 if (xSemaphoreTake(ssidRequestSemphr, 0)) {
+                    // 获取当前填写的 wifi 名称与密码, 为下一步连接准备
                     info_t info;
                     lv_dropdown_get_selected_str(ui_SSID, (char *) (&info)->ssid, 32);
                     char *password = (char *)lv_textarea_get_text(ui_passwordText);
@@ -133,13 +150,15 @@ static void lv_tick_callback(void *arg) {
     lv_tick_inc(LV_TICK_PERIOD_MS);
 }
 
-void ampEventCallback(lv_event_t * e) {
+void ampEventCallback(lv_event_t *e) {
+    (void) e;
     uint32_t ampValue = (uint32_t)lv_slider_get_value(ui_amplitude);
     dac_config.scale = 4-ampValue;
     dac_cw_generator_config(&dac_config);
 }
 
-void freEventCallback(lv_event_t * e) {
+void freEventCallback(lv_event_t *e) {
+    (void) e;
     uint32_t freValue = (uint32_t)lv_slider_get_value(ui_frequency);
     dac_config.freq = freValue;
     dac_cw_generator_config(&dac_config);

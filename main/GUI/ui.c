@@ -85,7 +85,7 @@ static void ui_event_ConnectButton(lv_event_t * e)
     lv_event_code_t event = lv_event_get_code(e);
 //    lv_obj_t * ta = lv_event_get_target(e);
     if(event == LV_EVENT_CLICKED) {
-//        connectWifiFunc(e);
+        connectWifiFunc(e);
     }
 }
 static void ui_event_refreshButton(lv_event_t * e)
@@ -93,7 +93,7 @@ static void ui_event_refreshButton(lv_event_t * e)
     lv_event_code_t event = lv_event_get_code(e);
 //    lv_obj_t * ta = lv_event_get_target(e);
     if(event == LV_EVENT_CLICKED) {
-        ssidRefreshFucn(e);
+        ssidRefreshFunc(e);
     }
 }
 static void ui_event_backButton(lv_event_t * e)

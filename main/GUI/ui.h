@@ -71,7 +71,7 @@ extern lv_obj_t * ui_backButton;
 extern lv_obj_t * ui_Image3;
 
 void connectWifiFunc(lv_event_t * e);
-void ssidRefreshFucn(lv_event_t * e);
+void ssidRefreshFunc(lv_event_t * e);
 
 LV_IMG_DECLARE(ui_img_settings_png);    // assets\settings.png
 LV_IMG_DECLARE(ui_img_nowifi_png);    // assets\nowifi.png

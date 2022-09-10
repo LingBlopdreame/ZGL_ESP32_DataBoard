@@ -57,19 +57,17 @@ void set_ADC_value(lv_obj_t **checkbox, lv_obj_t **dropdown, lv_obj_t **valueLab
     }
 }
 
-/*
 // TODO: 通过队列通知 Core0 connect WIFI, WIFI 状态使用应上锁
 void connectWifiFunc(lv_event_t *e) {
     (void) e;
     xSemaphoreGive(connectSemphr);
 }
-*/
 
 /**
  * @brief 
  * @param e
  */
-void ssidRefreshFucn(lv_event_t * e) {
+void ssidRefreshFunc(lv_event_t * e) {
     (void) e;
     xSemaphoreGive(ssidRefreshSemphr);
 }

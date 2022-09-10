@@ -21,8 +21,12 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-#define NR_OF_IP_ADDRESSES_TO_WAIT_FOR (s_active_interfaces)
+#define NR_OF_IP_ADDRESSES_TO_WAIT_FOR  (s_active_interfaces)
 
+extern SemaphoreHandle_t wifiConnectStatusMutex;
+extern bool wifiConnectStatus;
+
+uint8_t reconnectNum = 0;
 static int s_active_interfaces = 0;
 static xSemaphoreHandle s_semph_get_ip_addrs;
 static esp_netif_t *s_example_esp_netif = NULL;
@@ -127,7 +131,39 @@ static void on_wifi_disconnect(void *arg, esp_event_base_t event_base,
     ESP_ERROR_CHECK(err);
 }
 
-//static void wifiEventHandle
+// TODO: 完成调试 WIFI 回调函数
+static void wifiEventHandle(void *arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+    (void) arg;
+    if (event_base == WIFI_EVENT) {
+        switch (event_id) {
+            case WIFI_EVENT_STA_DISCONNECTED:
+                ESP_LOGI(TAG, "Wi-Fi disconnected, trying to reconnect, reconnect number: %d ...", reconnectNum);
+                if (xSemaphoreTake(wifiConnectStatusMutex, portMAX_DELAY)) {
+                    wifiConnectStatus = false;
+                    xSemaphoreGive(wifiConnectStatusMutex);
+                }
+                if (reconnectNum < WIFI_RECONNECT_NUMBER) {
+                    reconnectNum++;
+                    esp_wifi_connect();
+                } else {
+                    reconnectNum = 0;
+                }
+                break;
+
+            case WIFI_EVENT_STA_CONNECTED:
+                reconnectNum = 0;
+                ESP_LOGI(TAG, "Wi-Fi connected!!");
+                break;
+
+            default:
+                break;
+        }
+    } else if (event_base == IP_EVENT) {
+        if (event_id == IP_EVENT_STA_GOT_IP) {
+
+        }
+    }
+}
 
 static esp_netif_t *wifi_start(void) {
     char *desc;
@@ -144,8 +180,8 @@ static esp_netif_t *wifi_start(void) {
     free(desc);
     esp_wifi_set_default_wifi_sta_handlers();
 
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect, NULL));
-//    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifiEventHandle, NULL));
+//    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifiEventHandle, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip, NULL));
 
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));

@@ -20,6 +20,8 @@ extern "C" {
 #define CONFIG_EXAMPLE_WIFI_PASSWORD    "wty3.14159261379"
 #define EXAMPLE_WIFI_SCAN_METHOD        WIFI_ALL_CHANNEL_SCAN
 
+#define WIFI_RECONNECT_NUMBER           5
+
 #define EXAMPLE_INTERFACE get_example_netif()
 
 /**

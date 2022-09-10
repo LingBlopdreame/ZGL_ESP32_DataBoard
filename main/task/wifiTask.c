@@ -19,7 +19,6 @@
 #include "freertos/queue.h"
 
 #include "lwip/sockets.h"
-#include "lwip/dns.h"
 #include "lwip/netdb.h"
 
 #include "esp_log.h"
@@ -41,6 +40,8 @@ extern SemaphoreHandle_t ssidRefreshSemphr;
 extern SemaphoreHandle_t ssidRefreshedSemphr;
 extern SemaphoreHandle_t ssidRequestSemphr;
 extern QueueHandle_t ssidResponseQueue;
+
+extern uint8_t reconnectNum;
 
 static const char *TAG = "MQTT";
 static const char *TAG1 = "WiFi";
@@ -102,13 +103,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             break;
 
         case MQTT_EVENT_ERROR:
-            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-                log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
-                log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
-                log_error_if_nonzero("captured as transport's socket errno",  event->error_handle->esp_transport_sock_errno);
-                ESP_LOGI(TAG, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
-            }
+//            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+//            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+//                log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
+//                log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
+//                log_error_if_nonzero("captured as transport's socket errno",  event->error_handle->esp_transport_sock_errno);
+//                ESP_LOGI(TAG, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
+//            }
             break;
 
         default:
@@ -137,62 +138,32 @@ void refreshTask(void *pvParameters) {
     (void) pvParameters;
     for (;;) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
-        /*
+        // 按键连接 wifi 事件
         if (xSemaphoreTake(connectSemphr, 0)) {
-
-            if (!wifiConnectStatus) {
-                xSemaphoreGive(ssidRequestSemphr);
-                info_t info;
-                xQueueReceive(ssidResponseQueue, &info, portMAX_DELAY);
-
-                memcpy(wifi_config.sta.ssid, info.ssid, 32);
-                memcpy(wifi_config.sta.password, info.password, 64);
-                ESP_LOGI("Core2", "ssid: %s, password: %s", wifi_config.sta.ssid, wifi_config.sta.password);
-                esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-
-                xSemaphoreTake(retryNumMutex, portMAX_DELAY);
-                if (s_retry_num != 0 && s_retry_num < ESP_MAXIMUM_RETRY) {
-                    s_retry_num = 0;
-                } else if (s_retry_num >= ESP_MAXIMUM_RETRY) {
-                    s_retry_num = 0;
+            if (xSemaphoreTake(wifiConnectStatusMutex, 5)) {
+                if (!wifiConnectStatus) {
+                    // TODO: 考虑是否需要对重连计数清零
+                    ESP_LOGI(TAG1, "connect");
+                    // 向 GUI 请求当前填写的 SSID 以及 Password
+                    xSemaphoreGive(ssidRequestSemphr);
+                    info_t info;
+                    xQueueReceive(ssidResponseQueue, &info, portMAX_DELAY);
+                    ESP_LOGI("Core0", "from GUI get ssid: %s, and password: %s", info.ssid, info.password);
                     esp_wifi_connect();
                 } else {
-                    esp_wifi_connect();
+                    reconnectNum = WIFI_RECONNECT_NUMBER;
+                    esp_wifi_disconnect();
                 }
-                xSemaphoreGive(retryNumMutex);
-                xSemaphoreGive(connectStatusMutex);
-                EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                                                       WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                                       pdTRUE,
-                                                       pdFALSE,
-                                                       portMAX_DELAY);
-                if (bits & WIFI_CONNECTED_BIT) {
-                    ESP_LOGI(TAG0, "connected to ap SSID:%s password:%s",
-                             wifi_config.sta.ssid, wifi_config.sta.password);
-                } else if (bits & WIFI_FAIL_BIT) {
-                    ESP_LOGI(TAG0, "Failed to connect to SSID:%s, password:%s",
-                             wifi_config.sta.ssid, wifi_config.sta.password);
-                } else {
-                    ESP_LOGE(TAG0, "UNEXPECTED EVENT");
-                }
-            } else {
-                disconnectFlag = true;
-                if (esp_wifi_disconnect()) {
-                    wifiConnectStatus = false;
-                }
-                xSemaphoreGive(connectStatusMutex);
+                xSemaphoreGive(wifiConnectStatusMutex);
             }
-            ESP_LOGI("Core2", "execute connect");
         }
 
-        ESP_LOGI("Core2", "get connect signal!");
-        xSemaphoreTake(connectStatusMutex, 5);
-        }
-        */
+        // wifi 列表刷新事件
         if (xSemaphoreTake(ssidRefreshSemphr, 0)) {
             if (xSemaphoreTake(ssidInfoMutex, portMAX_DELAY)) {
                 uint16_t number = DEFAULT_SCAN_LIST_SIZE;
                 memset(ap_info, 0, sizeof(ap_info));
+                ESP_LOGI(TAG1, "Start wifi scan...");
                 esp_wifi_scan_start(NULL, true);
                 ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
                 ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
